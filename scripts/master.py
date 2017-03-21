@@ -22,7 +22,7 @@ class Master(object):
             self.status = True
 
     def help(self):
-        print ('USAGE: ....')
+        print ('USAGE: .... asd qwe rty')
 
 def signal_handler(signal, frame):
     print 'Shutting down master node nicely!'

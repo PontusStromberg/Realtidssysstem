@@ -6,7 +6,7 @@ import signal
 from json import dumps, load
 import time
 from geometry_msgs.msg import Twist
-#from real_time_systems_project.msg import XX
+#from rts_project.msg import Num
 import roslaunch
 
 class Master(object):
