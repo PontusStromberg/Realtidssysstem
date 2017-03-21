@@ -1,0 +1,74 @@
+#!/usr/bin/env python
+
+import rospy
+import sys, os, inspect
+import numpy as np
+from select import select
+import termios
+import contextlib
+from std_msgs.msg import String, Float64
+from crazy_ros.msg import NumpyArrayFloat64
+from geometry_msgs.msg import Point
+from time import sleep, time
+from math import sin, pi, sqrt, cos, sin
+from json import dumps, load
+import signal
+from geometry_msgs.msg import Twist
+from ControllerSuper import Controller
+
+class TvLQRcontroller(Controller):
+
+    def __init__(self):
+        """
+        Launches the super class constructor and sets the necessary attributes
+        for reading reference trajectories with one point on the prediction
+        horizon.
+        """
+        key = 'TVLQR'
+        super(self.__class__, self).__init__(key)
+
+    def compute_control(self):
+        #print 'LQR control signal'
+        start_time = time() # Start time
+
+        # Gets the reference trajectory
+        t = time() - self.traj_start
+        ref = self.compute_reference(t)
+
+        # Compute control signal
+        self.twist.linear.z = 5000  # Thrust
+        self.twist.angular.x = 0    # Pitch [degrees]. Positive moves "forward"
+        self.twist.angular.y = 0    # Roll, [degrees]. Positive moves "left"
+        self.twist.angular.z = 0    # Yaw,  [degrees].
+
+        # Publish control signal, reference and execution time
+        self.control_pub.publish(self.twist)
+        self.reference_pub.publish(ref)
+        execution_time = time() - start_time
+        self.execution_time_pub.publish(execution_time)
+        return execution_time
+
+def signal_handler(signal, frame):
+    print 'Shutting down controller node nicely!'
+    sys.exit(0)
+
+def main():
+    signal.signal(signal.SIGINT, signal_handler)
+    rospy.init_node('Outer Controller')
+    TVLQR = TvLQRcontroller()
+    while True:
+        if TVLQR.status:
+            execution_time = TVLQR.compute_control()
+            h = TVLQR.timestep
+            wait_time = h - execution_time
+        else:
+            wait_time = 0.05
+            h = 0.05
+        if wait_time >= 0:
+            sleep(wait_time)
+        else:
+            print (("Warning, the execution time of %f exceeds the loop time %f"+
+                    "in the outer controller") % (execution_time, h))
+    
+if __name__ == '__main__':
+    main()

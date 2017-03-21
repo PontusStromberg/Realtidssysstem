@@ -1,0 +1,157 @@
+#!/usr/bin/env python
+
+import rospy
+import os
+import sys
+import numpy as np
+from std_msgs.msg import String, Float64
+from crazy_ros.msg import NumpyArrayFloat64
+from geometry_msgs.msg import Point
+from time import sleep
+from math import sin, pi, sqrt
+from json import dumps, load
+import signal
+from geometry_msgs.msg import Twist
+
+class Controller(object):
+
+    def __init__(self, key):
+        self.key = key
+        self.status = False
+        self.xhat = np.zeros((12,1))
+        self.useKinect = 0
+        self.useCrazyflie = 0
+        self.useSimulation = 0
+        self.useOptitrack = 0
+        self.useUWBLPS = 0
+        
+        param = None
+
+        # Loads configuration parameters
+        try:
+            for arg in rospy.myargv(argv=sys.argv):
+                if len(arg.split(',')) > 1:
+                    if arg.split(',')[0] == 'useKinect':
+                        self.useKinect = int(arg.split(',')[1])
+                        if self.useKinect:
+                            # Subscribes to the kinect data if applicable (Point data)
+                            self.kinect_pos_sub = rospy.Subscriber('/kinect/pos', Point, self.handle_pos_point)
+                            self.kinect_vel_sub = rospy.Subscriber('/kinect/vel', Point, self.handle_vel_point)
+
+                    elif arg.split(',')[0] == 'useCrazyflie':
+                        self.useCrazyflie = int(arg.split(',')[1])
+                        # TODO include subscription of IMU data from the crazyflie
+                        if self.useCrazyflie:
+                            print 'Crazyflie IMU data subscription is not yet supported in %s' % str(self)
+                        
+                    elif arg.split(',')[0] == 'useSimulation':
+                        self.useSimulation = int(arg.split(',')[1])
+                        # Subscribes to the simulation states if applicable (numpy array floatd64)
+                        if self.useSimulation:
+                            self.measurement_sub = rospy.Subscriber('/model/states', NumpyArrayFloat64, self.handle_pos_point)
+
+                    elif arg.split(',')[0] == 'useOptitrack':
+                        self.useOptitrack = int(arg.split(',')[1])
+                        # TODO include optitrack subscription, connecting to the subscriber
+                        if self.useOptitrack:
+                            print 'WARNING. Optitrack data subscription is not yet supported in %s' % str(self)
+                        
+                    elif arg.split(',')[0] == 'useUWBLPS':
+                        self.useUWBLPS = int(arg.split(',')[1])
+                        # TODO include UWBLPS subscription, connecting to the subscriber
+                        if self.useUWBLPS:
+                            print 'Warning. UWBLPS data subscription is not yet supported in %s' % str(self)
+
+                if os.path.basename(arg) == 'configparam.cnf':
+                    with open(arg) as configfile:
+                        param = load(configfile)
+                        self.timestep = param['global']['outer_loop_h']
+                        self.param = param[self.key]
+                    configfile.close()
+        except:
+            raise ValueError('ERROR. Could not load configuration parameters in %s' % (str(self)))
+        
+        # Checks that a controller target exists
+        if (self.useSimulation + self.useCrazyflie) != 1:
+            raise ValueError('ERROR. Either of the useSimulation and useCrazyflie must be 1 in %s' % (str(self)))
+
+        # Controller status subscription
+        self.status_sub = rospy.Subscriber('/system/status_controller', String, self.handle_status)
+
+        # Control signal publisher, operates regardless of using simulation or process
+        self.control_pub = rospy.Publisher('/crazyflie/cmd_vel', Twist, queue_size = 10)
+ 
+    def handle_status(self, msg):
+        # Callback for commands from master which generates a trajectory
+        # if LQR is broadcasted, but turns of the controller if anything
+        # else is broadcasted and sets all conttrol signals to 0 if "q"
+        # is broadcasted
+        if msg.data == self.key:
+            self.status = True
+        else:
+            self.status = False
+            if msg.data == 'q':
+                self.control_pub.publish(np.zeros((4,1)))
+
+    def handle_pos_point(self, pos):
+        """
+        Updates the internal state vector as soon as new data is received.
+        Args:
+            pos - geometry_msgs/Point positional data from the kinect
+        """
+        self.xhat[0,0] = pos.x
+        self.xhat[1,0] = pos.y
+        self.xhat[2,0] = pos.z
+
+    def handle_vel_point(self, vel):
+        """
+        Updates the internal state vector as soon as new data is received.
+        Args:
+            vel - geometry_msgs/Point positional data from the kinect
+        """
+        self.xhat[3,0] = pos.x
+        self.xhat[4,0] = pos.y
+        self.xhat[5,0] = pos.z
+    
+    def compute_control_signal(self):
+        raise Exception('This method has to be over-written in the controller node')
+
+    def __str__(self):
+        return '%s controller' % self.key
+
+class LQRcontroller(Controller):
+
+    def __init__(self):
+        super(self.__class__, self).__init__('LQR')
+    
+    def compute_control_signal(self):
+        print 'LQR control signal'
+
+class MPCcontroller(Controller):
+
+    def __init__(self):
+        super(self.__class__, self).__init__('MPC')
+    
+    def compute_control_signal(self):
+        print 'MPC control signal'
+        
+def signal_handler(signal, frame):
+    print 'Shutting down controller node nicely!'
+    sys.exit(0)
+
+def main():
+    rospy.init_node('Outer Controller')
+    LQR = LQRcontroller()
+    MPCcc = MPCcontroller()
+    signal.signal(signal.SIGINT, signal_handler)
+    
+    # Have the while loop outside of the node in order to allow
+    # interruptions from the handle_status callback
+    while True:
+        if LQR.status:
+            LQR.compute_control_signal()
+            sleep(LQR.timestep)
+            # TODO compute MPC control signal
+
+if __name__ == '__main__':
+    main()
