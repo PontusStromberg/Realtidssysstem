@@ -4,6 +4,7 @@
   <version>0.0.0</version>
   <description>The rts_project package</description>
   <maintainer email="marcusgreiff.93@hotmail.com">marcus</maintainer>
+  <maintainer email="daniel.nilsson.jj@gmail.com">daniel</maintainer>
   <license>TODO</license>
   <buildtool_depend>catkin</buildtool_depend>
   <build_depend>rospy</build_depend>
