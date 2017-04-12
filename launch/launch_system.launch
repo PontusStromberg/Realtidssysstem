@@ -1,23 +1,26 @@
 <?xml version="1.0"?>
 <launch>
-  <!-- Default startup settings -->
-  <arg name="useKinect" default="0" />
-  <arg name="useOptitrack" default="0" />
-  <arg name="useUWBLPS" default="1" />
-  <arg name="useCrazyflie" default="1" />
-  <arg name="useSimulation" default="0" />
-  <arg name="useInternal" default="1" />
-  <arg name="useExternal" default="0" />
   
-  <!-- Visualization settings -->
-  <arg name="rviz_config" default="rviz_config.rviz"/>
-  <arg name="rqt_pos_topics" default="/visualization/measured_pose/pose/position /visualization/reference_pose/pose/position"/>
-  <group ns = "visualization">
-    <!--node pkg="rviz" name="rviz" type="rviz" args="-d $(find crazy_ros)/config/$(arg rviz_config)" /-->
-    <node pkg="tf" name="link1_broadcaster" type="static_transform_publisher" args="1 0 0 0 0 0 1 world lps 100" />
-    <!--<node pkg="rqt_plot" name="pos_plot" type="rqt_plot" args="$(arg rqt_pos_topics)" />-->
-    <!--node pkg="crazy_ros" name="visualization" type="visualizationNode.py" output="screen" args="$(find crazy_ros)/config/anchor_pos.yaml"/-->
+  <!--Set this to an appropriate channel, e.g. //0//110//2M and verify or change with cfclient-->
+  <arg name="uri" default="radio://0/110/2M" />
+  <arg name="roll_trim" default="0.001" />
+  <arg name="pitch_trim" default="0.01" />
+    
+  <include file="$(find crazyflie_driver)/launch/crazyflie_server.launch">
+    </include>
+
+    <group ns="crazyflie">
+      <node pkg="crazyflie_driver" type="crazyflie_add" name="crazyflie_add" output="screen">
+        <param name="uri" value="$(arg uri)" />
+        <param name="tf_prefix" value="crazyflie" />
+          <rosparam>
+            genericLogTopics: ["log_ref", "log_pos"]
+            genericLogTopicFrequencies: [10, 10]
+            genericLogTopic_log_ref_Variables: ["reference.x", "reference.y", "reference.z"]
+            genericLogTopic_log_pos_Variables: ["measured.x", "measured.y", "measured.z"]
+          </rosparam>
+      </node>
   </group>
-  
+
   <node name="master" pkg="rts_project" type="master.py" output="screen" />
 </launch>
