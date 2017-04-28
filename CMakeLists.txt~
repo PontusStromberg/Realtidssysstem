@@ -11,7 +11,8 @@ find_package(catkin REQUIRED COMPONENTS
 
 add_message_files(
    FILES
-   GenericLogData.msg
+   Num.msg
+   NumpyArrayFloat64.msg
  )
 
 add_service_files(
