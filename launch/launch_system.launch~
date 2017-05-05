@@ -15,7 +15,7 @@
         <param name="tf_prefix" value="crazyflie" />
           <rosparam>
             genericLogTopics: ["log_pos"]
-            genericLogTopicFrequencies: [50]
+            genericLogTopicFrequencies: [10]
             genericLogTopic_log_pos_Variables: ["kalman.stateX", "kalman.stateY", "kalman.stateZ"]
           </rosparam>
       </node>

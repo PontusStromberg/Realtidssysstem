@@ -18,11 +18,20 @@ class Master(object):
         
         # A subscriber which listens and logs data from the crazyflie
         self.position_sub = rospy.Subscriber('/crazyflie/log_pos', GenericLogData, self.handle_pos)
+        self.cmd_vel_pub = rospy.Publisher('crazyflie/cmd_vel', Twist, queue_size = 10)
 
         # Initial position and attributes where the positin is made accessible
         self.x = 0.0;
         self.y = 0.0;
         self.z = 0.0;
+        self.twist = Twist()
+
+    def send_csig(self, thrust, pitch, roll, yawrate):
+        self.twist.linear.z = thrust
+        self.twist.linear.y = pitch
+        self.twist.linear.x = roll
+        self.twist.angular.z = yawrate
+        self.cmd_vel_pub.publish(self.twist)
 
     def handle_system_status(self, msg):
         # Example of a callback to the status_master topic
@@ -55,11 +64,21 @@ def main():
     master = Master()
     signal.signal(signal.SIGINT, signal_handler)
     
+    start_time = time.time()
+
     while True:
-        command = raw_input('(@ master) Command: ')
-        data = command.split(' ')
-        master.help()
-        master.status_controller.publish(data[0])
+        time.sleep(0.01)
+        #command = raw_input('(@ master) Command: ')
+        #data = command.split(' ')
+        #data = 
+        #master.help()
+        #master.status_controller.publish(data[0])
+        if time.time() - start_time > 10:
+            print (time.time() - start_time)
+            thrust = 20000
+        else:
+            thrust = 0.0
+        master.send_csig(thrust,0.0,0.0,0.0)
 
 if __name__ == '__main__':
     main()
